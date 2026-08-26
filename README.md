@@ -36,27 +36,35 @@ GCLM mathematically guarantees that an LLM will strictly reach designated goal/a
 ## 📐 Mathematical Formulation
 
 ### 1. Offline Backward BFS Table Builder
-Given an FSM $(S, \Sigma, \delta, s_0, S_{\text{goal}})$ and maximum token budget $T_{\max}$, we precompute a reachability tensor $R \in \mathbb{B}^{(T_{\max} + 1) \times |S|}$ via vectorized backward BFS:
+Given an FSM $(S, \Sigma, \delta, s_0, S_{\mathrm{goal}})$ and maximum token budget $T_{\max}$, we precompute a reachability tensor $R \in \mathbb{B}^{(T_{\max} + 1) \times \vert S\vert}$ via vectorized backward BFS:
 
-$$R[0, s] = \begin{cases} \text{True} & \text{if } s \in S_{\text{goal}} \\ \text{False} & \text{otherwise} \end{cases}$$
+```math
+R[0, s] = 
+\begin{cases} 
+\mathrm{True} & \text{if } s \in S_{\mathrm{goal}} \\ 
+\mathrm{False} & \text{otherwise} 
+\end{cases}
+```
 
 For $t = 1, \dots, T_{\max}$:
-$$R[t, s] = R[t-1, s] \lor \left( \exists v \in \mathcal{V} \text{ s.t. } \delta(s, v) \ge 0 \land R[t-1, \delta(s, v)] = \text{True} \right)$$
+```math
+R[t, s] = R[t-1, s] \;\lor\; \left( \exists v \in \mathcal{V} \text{ s.t. } \delta(s, v) \ge 0 \;\land\; R[t-1, \delta(s, v)] = \mathrm{True} \right)
+```
 
 ### 2. Strict $\mathcal{O}(1)$ Runtime Logits Masking
 At decoding step $k$ with remaining budget $T_{\text{rem}} = T_{\max} - k$:
 
-$$
-\operatorname{ValidTokens}(v) = (\delta(s_{\mathrm{curr}}, v) \ge 0) \;\land\; R\big[\min(T_{\text{rem}}-1, T_{\max}), \;\operatorname{clamp}(\delta(s_{\mathrm{curr}}, v), 0)\big]
-$$
+```math
+\mathrm{ValidTokens}(v) = (\delta(s_{\mathrm{curr}}, v) \ge 0) \;\land\; R\big[\min(T_{\text{rem}}-1, T_{\max}), \;\mathrm{clamp}(\delta(s_{\mathrm{curr}}, v), 0)\big]
+```
 
-$$
-\operatorname{Logits}[v] = 
+```math
+\mathrm{Logits}[v] = 
 \begin{cases} 
-\operatorname{Logits}[v] & \text{if } \operatorname{ValidTokens}(v) = \text{True} \\\\ 
+\mathrm{Logits}[v] & \text{if } \mathrm{ValidTokens}(v) = \mathrm{True} \\ 
 -\infty & \text{otherwise} 
 \end{cases}
-$$
+```
 
 ---
 
