@@ -43,12 +43,20 @@ $$R[0, s] = \begin{cases} \text{True} & \text{if } s \in S_{\text{goal}} \\ \tex
 For $t = 1, \dots, T_{\max}$:
 $$R[t, s] = R[t-1, s] \lor \left( \exists v \in \mathcal{V} \text{ s.t. } \delta(s, v) \ge 0 \land R[t-1, \delta(s, v)] = \text{True} \right)$$
 
-### 2. Strict $O(1)$ Runtime Logits Masking
+### 2. Strict $\mathcal{O}(1)$ Runtime Logits Masking
 At decoding step $k$ with remaining budget $T_{\text{rem}} = T_{\max} - k$:
 
-$$\text{valid\_tokens}(v) = (\delta(s_{\text{curr}}, v) \ge 0) \;\land\; R\big[\min(T_{\text{rem}}-1, T_{\max}), \;\delta(s_{\text{curr}}, v)\big]$$
+$$
+\operatorname{ValidTokens}(v) = (\delta(s_{\mathrm{curr}}, v) \ge 0) \;\land\; R\big[\min(T_{\text{rem}}-1, T_{\max}), \;\operatorname{clamp}(\delta(s_{\mathrm{curr}}, v), 0)\big]
+$$
 
-$$\text{Logits}[v] = \begin{cases} \text{Logits}[v] & \text{if } \text{valid\_tokens}(v) = \text{True} \\ -\infty & \text{otherwise} \end{cases}$$
+$$
+\operatorname{Logits}[v] = 
+\begin{cases} 
+\operatorname{Logits}[v] & \text{if } \operatorname{ValidTokens}(v) = \text{True} \\\\ 
+-\infty & \text{otherwise} 
+\end{cases}
+$$
 
 ---
 
