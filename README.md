@@ -20,8 +20,8 @@ pipeline_tag: text-generation
 [![Transformers 4.36+](https://img.shields.io/badge/Transformers-4.36+-yellow.svg)](https://huggingface.co/docs/transformers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-An ultra-fast, strictly $O(1)$ runtime **Goal-Conditioned Reachability Logit Masking Engine** for Large Language Models.  
-GCLM mathematically guarantees that an LLM will strictly reach designated goal/accepting states within a fixed token budget ($T_{\max}$), **fundamentally preventing dead-end traps and truncated syntax failures**.
+An ultra-fast, strictly \(O(1)\) runtime **Goal-Conditioned Reachability Logit Masking Engine** for Large Language Models.  
+GCLM mathematically guarantees that an LLM will strictly reach designated goal/accepting states within a fixed token budget (\(T_{\max}\)), **fundamentally preventing dead-end traps and truncated syntax failures**.
 
 ---
 
@@ -40,38 +40,38 @@ GCLM mathematically guarantees that an LLM will strictly reach designated goal/a
 
 | Feature | Standard Forward DFA (Outlines / SGLang) | **GCLM (Ours)** |
 | :--- | :--- | :--- |
-| **Masking Basis** | Current state validity ($s_{\text{curr}} \to s'$) | **Time-bounded backward reachability** ($s_{\text{curr}} \to s' \to^* S_{\text{goal}}$ in $\le T_{\text{rem}}-1$ steps) |
+| **Masking Basis** | Current state validity (`s_curr -> s'`) | **Time-bounded backward reachability** (`s_curr -> s' ->* S_goal` in `≤ T_rem - 1` steps) |
 | **Dead-End Traps** | ❌ May enter valid forward branches that lead to dead-ends | ✅ **Preemptively masked** before entering trap |
-| **Token Budget Exceeded**| ❌ Outputs truncated/broken syntax when budget ends | ✅ **Forces early syntax closure** before budget exhaustion |
-| **Per-Token Overhead** | $O(1)$ table lookup | **Strict $O(1)$ vectorized PyTorch lookup (< 0.1ms)** |
-| **Complexity Scaling** | Scales with active state transitions | **Zero runtime dependence on state count (\|S\|)** |
+| **Token Budget Exceeded** | ❌ Outputs truncated/broken syntax when budget ends | ✅ **Forces early syntax closure** before budget exhaustion |
+| **Per-Token Overhead** | O(1) table lookup | **Strict O(1) vectorized PyTorch lookup (< 0.1ms)** |
+| **Complexity Scaling** | Scales with active state transitions | **Zero runtime dependence on state count (S)** |
 
 ---
 
 ## 📐 Mathematical Formulation
 
 ### 1. Offline Backward BFS Table Builder
-Given an FSM $(S, \Sigma, \delta, s_0, S_{\mathrm{goal}})$ and maximum token budget $T_{\max}$, we precompute a reachability tensor $R \in \mathbb{B}^{(T_{\max} + 1) \times |S|}$ via vectorized backward BFS:
+Given an FSM \((S, \Sigma, \delta, s_0, S_{\mathrm{goal}})\) and maximum token budget \(T_{\max}\), we precompute a reachability tensor \(R \in \mathbb{B}^{(T_{\max} + 1) \times |S|}\) via vectorized backward BFS:
 
 $$
-R[0, s] = \begin{cases} \text{True} & \text{if } s \in S_{\text{goal}} \\ \text{False} & \text{otherwise} \end{cases}
+R[0, s] = \mathbf{1}(s \in S_{\mathrm{goal}})
 $$
 
-For $t = 1, \dots, T_{\max}$:
+For \(t = 1, \dots, T_{\max}\):
 
 $$
-R[t, s] = R[t-1, s] \;\lor\; \left( \exists v \in \mathcal{V} \text{ s.t. } \delta(s, v) \ge 0 \;\land\; R[t-1, \delta(s, v)] = \text{True} \right)
+R[t, s] = R[t-1, s] \lor \left( \exists v \in \mathcal{V} \text{ s.t. } \delta(s, v) \ge 0 \land R[t-1, \delta(s, v)] = 1 \right)
 $$
 
-### 2. Strict $O(1)$ Runtime Logits Masking
-At decoding step $k$ with remaining budget $T_{\text{rem}} = T_{\max} - k$:
+### 2. Strict \(O(1)\) Runtime Logits Masking
+At decoding step \(k\) with remaining budget \(T_{\mathrm{rem}} = T_{\max} - k\):
 
 $$
-\text{ValidTokens}(v) = (\delta(s_{\text{curr}}, v) \ge 0) \;\land\; R\big[\min(T_{\text{rem}}-1, T_{\max}), \;\text{clamp}(\delta(s_{\text{curr}}, v), 0)\big]
+\mathrm{ValidTokens}(v) = (\delta(s_{\mathrm{curr}}, v) \ge 0) \land R\big[\min(T_{\mathrm{rem}}-1, T_{\max}), \;\mathrm{clamp}(\delta(s_{\mathrm{curr}}, v), 0)\big]
 $$
 
 $$
-\text{Logits}[v] = \begin{cases} \text{Logits}[v] & \text{if } \text{ValidTokens}(v) = \text{True} \\ -\infty & \text{otherwise} \end{cases}
+\mathrm{Logits}[v] = \begin{cases} \mathrm{Logits}[v] & \text{if } \mathrm{ValidTokens}(v) = 1 \\ -\infty & \text{otherwise} \end{cases}
 $$
 
 ---
@@ -109,23 +109,23 @@ gclm_project/
 ### 1. Real Lightweight LLM End-to-End Benchmark (`Qwen2.5-0.5B`)
 > Tested on real model weights generating JSON responses under strict token limits.
 
-| Token Budget ($T_{\max}$) | Vanilla Sampling | Forward DFA (Outlines Style) | **GCLM (Ours)** | Latency / Sample (GCLM) |
+| Token Budget (T_max) | Vanilla Sampling | Forward DFA (Outlines Style) | **GCLM (Ours)** | Latency / Sample (GCLM) |
 | :--- | :---: | :---: | :---: | :---: |
-| **$T_{\max} = 6$ tokens** | 0.0% | 30.0% | **100.0%** | **615.90 ms** (Fastest, early closure) |
-| **$T_{\max} = 10$ tokens**| 0.0% | 70.0% | **100.0%** | **1,086.02 ms** |
-| **$T_{\max} = 16$ tokens**| 0.0% | 85.0% | **100.0%** | **992.39 ms** |
+| **T_max = 6 tokens** | 0.0% | 30.0% | **100.0%** | **615.90 ms** (Fastest, early closure) |
+| **T_max = 10 tokens** | 0.0% | 70.0% | **100.0%** | **1,086.02 ms** |
+| **T_max = 16 tokens** | 0.0% | 85.0% | **100.0%** | **992.39 ms** |
 
 ---
 
 ### 2. Strict Budget JSON Schema Parsing Benchmark
 > Complex nested JSON schema tested across 500 trials per budget.
 
-| Budget ($T_{\max}$) | Vanilla | Forward DFA (Outlines Style) | **GCLM (Ours)** | Key Insight |
+| Budget (T_max) | Vanilla | Forward DFA (Outlines Style) | **GCLM (Ours)** | Key Insight |
 | :--- | :---: | :---: | :---: | :--- |
-| **$T_{\max} = 4$** | 2.4% | 55.4% | **100.0%** | **Forces safe `{}` closure when fields cannot finish** |
-| **$T_{\max} = 6$** | 2.4% | 45.6% | **100.0%** | Prunes deep nested object paths |
-| **$T_{\max} = 8$** | 2.2% | 65.2% | **100.0%** | Eliminates dangling commas |
-| **$T_{\max} = 16$** | 1.4% | 91.8% | **100.0%** | Complete 100% parse rate across all budgets |
+| **T_max = 4** | 2.4% | 55.4% | **100.0%** | **Forces safe `{}` closure when fields cannot finish** |
+| **T_max = 6** | 2.4% | 45.6% | **100.0%** | Prunes deep nested object paths |
+| **T_max = 8** | 2.2% | 65.2% | **100.0%** | Eliminates dangling commas |
+| **T_max = 16** | 1.4% | 91.8% | **100.0%** | Complete 100% parse rate across all budgets |
 
 ---
 
@@ -140,17 +140,17 @@ gclm_project/
 
 ---
 
-### 4. FSM Complexity & Strict $O(1)$ Runtime Scaling
-> Scaling state count $|S|$ from 10 to 10,000 (1,000x increase). Plot saved as `paper_figure_scaling.png`.
+### 4. FSM Complexity & Strict O(1) Runtime Scaling
+> Scaling state count \(|S|\) from 10 to 10,000 (1,000x increase). Plot saved as `paper_figure_scaling.png`.
 
-| Vocabulary Size (\|V\|) | State Count (\|S\|) | Offline BFS Time | Memory Footprint | Online Latency per Token |
+| Vocabulary Size (V) | State Count (S) | Offline BFS Time | Memory Footprint | Online Latency per Token |
 | :--- | :---: | :---: | :---: | :---: |
-| **\|V\| = 32,000 (LLaMA)** | \|S\| = 10 | 29.55 ms | 2.44 MB | **388.72 µs** |
-| \|V\| = 32,000 | \|S\| = 100 | 240.10 ms | 24.42 MB | **335.10 µs** |
-| \|V\| = 32,000 | \|S\| = 1,000 | 2,111.82 ms | 244.19 MB | **340.84 µs** |
-| \|V\| = 32,000 | **\|S\| = 10,000** | 25,790.14 ms | 2.44 GB | **356.29 µs** ($O(1)$ empirically verified) |
-| **\|V\| = 151,643 (Qwen2.5)** | \|S\| = 10 | 159.29 ms | 11.57 MB | **601.92 µs** |
-| \|V\| = 151,643 | **\|S\| = 10,000** | 147,702.79 ms | 11.56 GB | **666.22 µs** ($O(1)$ empirically verified) |
+| **V = 32,000 (LLaMA)** | S = 10 | 29.55 ms | 2.44 MB | **388.72 µs** |
+| V = 32,000 | S = 100 | 240.10 ms | 24.42 MB | **335.10 µs** |
+| V = 32,000 | S = 1,000 | 2,111.82 ms | 244.19 MB | **340.84 µs** |
+| V = 32,000 | **S = 10,000** | 25,790.14 ms | 2.44 GB | **356.29 µs** (O(1) verified) |
+| **V = 151,643 (Qwen2.5)** | S = 10 | 159.29 ms | 11.57 MB | **601.92 µs** |
+| V = 151,643 | **S = 10,000** | 147,702.79 ms | 11.56 GB | **666.22 µs** (O(1) verified) |
 
 ---
 
