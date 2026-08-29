@@ -1,3 +1,18 @@
+---
+license: mit
+tags:
+- constrained-decoding
+- reachability
+- logit-processor
+- structured-generation
+- grammar-masking
+- dfa
+- fsm
+- pytorch
+- transformers
+pipeline_tag: text-generation
+---
+
 # Goal-Conditioned Reachability Logit Masker (GCLM)
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
@@ -25,46 +40,47 @@ GCLM mathematically guarantees that an LLM will strictly reach designated goal/a
 
 | Feature | Standard Forward DFA (Outlines / SGLang) | **GCLM (Ours)** |
 | :--- | :--- | :--- |
-| **Masking Basis** | Current state validity ($s_{\text{curr}} \xrightarrow{v} s'$) | **Time-bounded backward reachability** ($s_{\text{curr}} \xrightarrow{v} s' \rightsquigarrow S_{\text{goal}}$ in $\le T_{\text{rem}}-1$ steps) |
+| **Masking Basis** | Current state validity ($s_{\text{curr}} \to s'$) | **Time-bounded backward reachability** ($s_{\text{curr}} \to s' \rightsquigarrow S_{\text{goal}}$ in $\le T_{\text{rem}}-1$ steps) |
 | **Dead-End Traps** | ❌ May enter valid forward branches that lead to dead-ends | ✅ **Preemptively masked** before entering trap |
 | **Token Budget Exceeded**| ❌ Outputs truncated/broken syntax when budget ends | ✅ **Forces early syntax closure** before budget exhaustion |
 | **Per-Token Overhead** | $O(1)$ table lookup | **Strict $O(1)$ vectorized PyTorch lookup (< 0.1ms)** |
-| **Complexity Scaling** | Scales with active state transitions | **Zero runtime dependence on state count $\|S\|$** |
+| **Complexity Scaling** | Scales with active state transitions | **Zero runtime dependence on state count $|S|$** |
 
 ---
 
 ## 📐 Mathematical Formulation
 
 ### 1. Offline Backward BFS Table Builder
-Given an FSM $(S, \Sigma, \delta, s_0, S_{\mathrm{goal}})$ and maximum token budget $T_{\max}$, we precompute a reachability tensor $R \in \mathbb{B}^{(T_{\max} + 1) \times \vert S\vert}$ via vectorized backward BFS:
+Given an FSM $(S, \Sigma, \delta, s_0, S_{\mathrm{goal}})$ and maximum token budget $T_{\max}$, we precompute a reachability tensor $R \in \mathbb{B}^{(T_{\max} + 1) \times |S|}$ via vectorized backward BFS:
 
-```math
+$$
 R[0, s] = 
 \begin{cases} 
 \mathrm{True} & \text{if } s \in S_{\mathrm{goal}} \\ 
 \mathrm{False} & \text{otherwise} 
 \end{cases}
-```
+$$
 
 For $t = 1, \dots, T_{\max}$:
-```math
-R[t, s] = R[t-1, s] \;\lor\; \left( \exists v \in \mathcal{V} \text{ s.t. } \delta(s, v) \ge 0 \;\land\; R[t-1, \delta(s, v)] = \mathrm{True} \right)
-```
 
-### 2. Strict $\mathcal{O}(1)$ Runtime Logits Masking
+$$
+R[t, s] = R[t-1, s] \;\lor\; \left( \exists v \in \mathcal{V} \text{ s.t. } \delta(s, v) \ge 0 \;\land\; R[t-1, \delta(s, v)] = \mathrm{True} \right)
+$$
+
+### 2. Strict $O(1)$ Runtime Logits Masking
 At decoding step $k$ with remaining budget $T_{\text{rem}} = T_{\max} - k$:
 
-```math
+$$
 \mathrm{ValidTokens}(v) = (\delta(s_{\mathrm{curr}}, v) \ge 0) \;\land\; R\big[\min(T_{\text{rem}}-1, T_{\max}), \;\mathrm{clamp}(\delta(s_{\mathrm{curr}}, v), 0)\big]
-```
+$$
 
-```math
+$$
 \mathrm{Logits}[v] = 
 \begin{cases} 
 \mathrm{Logits}[v] & \text{if } \mathrm{ValidTokens}(v) = \mathrm{True} \\ 
 -\infty & \text{otherwise} 
 \end{cases}
-```
+$$
 
 ---
 
@@ -132,16 +148,17 @@ gclm_project/
 
 ---
 
-### 4. FSM Complexity & Strict $\mathcal{O}(1)$ Runtime Scaling
+### 4. FSM Complexity & Strict $O(1)$ Runtime Scaling
 > Scaling state count $|S|$ from 10 to 10,000 (1,000x increase). Plot saved as `paper_figure_scaling.png`.
 
-| Vocabulary Size $\vert\mathcal{V}\vert$ | State Count $\vert S\vert$ | Offline BFS Time | Memory Footprint | Online Latency per Token |
+| Vocabulary Size $|\mathcal{V}|$ | State Count $|S|$ | Offline BFS Time | Memory Footprint | Online Latency per Token |
 | :--- | :---: | :---: | :---: | :---: |
-| **$\vert\mathcal{V}\vert = 32,000$ (LLaMA)** | $\vert S\vert = 10$ | 29.55 ms | 2.44 MB | **388.72 $\mu$s** |
-| $\vert\mathcal{V}\vert = 32,000$ | $\vert S\vert = 100$ | 240.10 ms | 24.42 MB | **335.10 $\mu$s** |
-| $\vert\mathcal{V}\vert = 32,000$ | $\vert S\vert = 1,000$ | 2,111.82 ms | 244.19 MB | **340.84 $\mu$s** |
-| $\vert\mathcal{V}\vert = 32,000$ | **$\vert S\vert = 10,000$** | 25,790.14 ms | 2.44 GB | **356.29 $\mu$s** ($\mathcal{O}(1)$ empirically verified) |
-| **$\vert\mathcal{V}\vert = 151,643$ (Qwen2.5)** | $\vert S\vert = 10$ | 159.29 ms | 11.57 MB | **601.92 $\mu$s** |
+| **$|\mathcal{V}| = 32,000$ (LLaMA)** | $|S| = 10$ | 29.55 ms | 2.44 MB | **388.72 µs** |
+| $|\mathcal{V}| = 32,000$ | $|S| = 100$ | 240.10 ms | 24.42 MB | **335.10 µs** |
+| $|\mathcal{V}| = 32,000$ | $|S| = 1,000$ | 2,111.82 ms | 244.19 MB | **340.84 µs** |
+| $|\mathcal{V}| = 32,000$ | **$|S| = 10,000$** | 25,790.14 ms | 2.44 GB | **356.29 µs** ($O(1)$ empirically verified) |
+| **$|\mathcal{V}| = 151,643$ (Qwen2.5)** | $|S| = 10$ | 159.29 ms | 11.57 MB | **601.92 µs** |
+| $|\mathcal{V}| = 151,643$ | **$|S| = 10,000$** | 147,702.79 ms | 11.56 GB | **666.22 µs** ($O(1)$ empirically verified) |2.5)** | $\vert S\vert = 10$ | 159.29 ms | 11.57 MB | **601.92 $\mu$s** |
 | $\vert\mathcal{V}\vert = 151,643$ | **$\vert S\vert = 10,000$** | 147,702.79 ms | 11.56 GB | **666.22 $\mu$s** ($\mathcal{O}(1)$ empirically verified) |
 
 ---
