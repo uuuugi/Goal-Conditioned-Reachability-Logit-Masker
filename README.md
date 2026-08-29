@@ -20,8 +20,8 @@ pipeline_tag: text-generation
 [![Transformers 4.36+](https://img.shields.io/badge/Transformers-4.36+-yellow.svg)](https://huggingface.co/docs/transformers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-An ultra-fast, strictly \(O(1)\) runtime **Goal-Conditioned Reachability Logit Masking Engine** for Large Language Models.  
-GCLM mathematically guarantees that an LLM will strictly reach designated goal/accepting states within a fixed token budget (\(T_{\max}\)), **fundamentally preventing dead-end traps and truncated syntax failures**.
+An ultra-fast, strictly **O(1)** runtime **Goal-Conditioned Reachability Logit Masking Engine** for Large Language Models.  
+GCLM mathematically guarantees that an LLM will strictly reach designated goal/accepting states within a fixed token budget (`T_max`), **fundamentally preventing dead-end traps and truncated syntax failures**.
 
 ---
 
@@ -51,28 +51,26 @@ GCLM mathematically guarantees that an LLM will strictly reach designated goal/a
 ## 📐 Mathematical Formulation
 
 ### 1. Offline Backward BFS Table Builder
-Given an FSM \((S, \Sigma, \delta, s_0, S_{\mathrm{goal}})\) and maximum token budget \(T_{\max}\), we precompute a reachability tensor \(R \in \mathbb{B}^{(T_{\max} + 1) \times |S|}\) via vectorized backward BFS:
+Given an FSM $(S, \Sigma, \delta, s_0, S_{\text{goal}})$ and maximum token budget $T_{\max}$, we precompute a reachability tensor $R \in \{0, 1\}^{(T_{\max} + 1) \times |S|}$ via vectorized backward BFS:
 
-$$
-R[0, s] = \mathbf{1}(s \in S_{\mathrm{goal}})
-$$
+```python
+# Base Step (t = 0):
+R[0, s] = 1  if (s in S_goal)  else 0
 
-For \(t = 1, \dots, T_{\max}\):
+# Vectorized Backward BFS (for t = 1 ... T_max):
+R[t, s] = R[t-1, s]  OR  (∃ v ∈ V such that δ(s, v) >= 0 and R[t-1, δ(s, v)] == 1)
+```
 
-$$
-R[t, s] = R[t-1, s] \lor \left( \exists v \in \mathcal{V} \text{ s.t. } \delta(s, v) \ge 0 \land R[t-1, \delta(s, v)] = 1 \right)
-$$
+### 2. Strict O(1) Runtime Logits Masking
+At decoding step $k$ with remaining token budget $T_{\text{rem}} = T_{\max} - k$:
 
-### 2. Strict \(O(1)\) Runtime Logits Masking
-At decoding step \(k\) with remaining budget \(T_{\mathrm{rem}} = T_{\max} - k\):
+```python
+# Step 1: Vectorized check for valid transitions within remaining budget
+ValidTokens(v) = (δ(s_curr, v) >= 0)  AND  R[min(T_rem - 1, T_max), clamp(δ(s_curr, v), 0)]
 
-$$
-\mathrm{ValidTokens}(v) = (\delta(s_{\mathrm{curr}}, v) \ge 0) \land R\big[\min(T_{\mathrm{rem}}-1, T_{\max}), \;\mathrm{clamp}(\delta(s_{\mathrm{curr}}, v), 0)\big]
-$$
-
-$$
-\mathrm{Logits}[v] = \begin{cases} \mathrm{Logits}[v] & \text{if } \mathrm{ValidTokens}(v) = 1 \\ -\infty & \text{otherwise} \end{cases}
-$$
+# Step 2: In-place O(1) logit masking
+Logits[v] = Logits[v]  if ValidTokens(v) == 1  else -inf
+```
 
 ---
 
