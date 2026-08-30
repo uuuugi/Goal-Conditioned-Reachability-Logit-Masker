@@ -15,13 +15,17 @@ pipeline_tag: text-generation
 
 # Goal-Conditioned Reachability Logit Masker (GCLM)
 
+[![GitHub Repo](https://img.shields.io/badge/GitHub-Repository-181717.svg?logo=github)](https://github.com/uuuugi/Goal-Conditioned-Reachability-Logit-Masker)
+[![Paper PDF](https://img.shields.io/badge/Paper-PDF-b31b1b.svg?logo=adobeacrobatreader)](paper.pdf)
+[![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Repository-yellow)](https://huggingface.co/uuugi/gclm-constrained-decoding)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch 2.0+](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)](https://pytorch.org/)
-[![Transformers 4.36+](https://img.shields.io/badge/Transformers-4.36+-yellow.svg)](https://huggingface.co/docs/transformers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 An ultra-fast, strictly **O(1)** runtime **Goal-Conditioned Reachability Logit Masking Engine** for Large Language Models.  
 GCLM mathematically guarantees that an LLM will strictly reach designated goal/accepting states within a fixed token budget (`T_max`), **fundamentally preventing dead-end traps and truncated syntax failures**.
+
+📄 **Paper**: [**Read / Download `paper.pdf`**](paper.pdf) &nbsp;|&nbsp; 💻 **GitHub**: [**uuuugi/Goal-Conditioned-Reachability-Logit-Masker**](https://github.com/uuuugi/Goal-Conditioned-Reachability-Logit-Masker)
 
 ---
 
@@ -155,10 +159,18 @@ gclm_project/
 ## 🚀 Quick Start
 
 ### 1. Installation
+
+**From Hugging Face:**
 ```bash
-# Clone the repository from Hugging Face
 git clone https://huggingface.co/uuugi/gclm-constrained-decoding
 cd gclm-constrained-decoding
+pip install -r requirements.txt
+```
+
+**From GitHub:**
+```bash
+git clone https://github.com/uuuugi/Goal-Conditioned-Reachability-Logit-Masker.git
+cd Goal-Conditioned-Reachability-Logit-Masker
 pip install -r requirements.txt
 ```
 
@@ -226,7 +238,11 @@ python -m benchmarks.real_model_bench --model Qwen/Qwen2.5-0.5B
 
 ---
 
-## 📑 Citation & Author
+## 📑 Paper & Citation
+
+📄 **Paper PDF**: [**Download `paper.pdf`**](paper.pdf)  
+💻 **GitHub Repository**: [**uuuugi/Goal-Conditioned-Reachability-Logit-Masker**](https://github.com/uuuugi/Goal-Conditioned-Reachability-Logit-Masker)  
+🤗 **Hugging Face Model**: [**uuugi/gclm-constrained-decoding**](https://huggingface.co/uuugi/gclm-constrained-decoding)
 
 ```bibtex
 @article{an2026gclm,
