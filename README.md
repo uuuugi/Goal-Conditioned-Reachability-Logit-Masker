@@ -156,8 +156,9 @@ gclm_project/
 
 ### 1. Installation
 ```bash
-git clone https://github.com/your-username/gclm.git
-cd gclm
+# Clone the repository from Hugging Face
+git clone https://huggingface.co/uuugi/gclm-constrained-decoding
+cd gclm-constrained-decoding
 pip install -r requirements.txt
 ```
 
