@@ -51,7 +51,7 @@ GCLM mathematically guarantees that an LLM will strictly reach designated goal/a
 ## 📐 Mathematical Formulation
 
 ### 1. Offline Backward BFS Table Builder
-Given an FSM $(S, \Sigma, \delta, s_0, S_{\text{goal}})$ and maximum token budget $T_{\max}$, we precompute a reachability tensor $R \in \{0, 1\}^{(T_{\max} + 1) \times |S|}$ via vectorized backward BFS:
+Given an FSM `(S, Σ, δ, s_0, S_goal)` and maximum token budget `T_max`, we precompute a reachability tensor `R` of shape `(T_max + 1, |S|)` via vectorized backward BFS:
 
 ```python
 # Base Step (t = 0):
@@ -62,7 +62,7 @@ R[t, s] = R[t-1, s]  OR  (∃ v ∈ V such that δ(s, v) >= 0 and R[t-1, δ(s, v
 ```
 
 ### 2. Strict O(1) Runtime Logits Masking
-At decoding step $k$ with remaining token budget $T_{\text{rem}} = T_{\max} - k$:
+At decoding step `k` with remaining token budget `T_rem = T_max - k`:
 
 ```python
 # Step 1: Vectorized check for valid transitions within remaining budget
@@ -139,7 +139,7 @@ gclm_project/
 ---
 
 ### 4. FSM Complexity & Strict O(1) Runtime Scaling
-> Scaling state count \(|S|\) from 10 to 10,000 (1,000x increase). Plot saved as `paper_figure_scaling.png`.
+> Scaling state count `|S|` from 10 to 10,000 (1,000x increase). Plot saved as `paper_figure_scaling.png`.
 
 | Vocabulary Size (V) | State Count (S) | Offline BFS Time | Memory Footprint | Online Latency per Token |
 | :--- | :---: | :---: | :---: | :---: |
