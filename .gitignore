@@ -1,6 +1,5 @@
-# Paper and LaTeX sources/PDFs (per user request)
+# Paper LaTeX sources (root paper.pdf is tracked for README)
 paper/
-paper.pdf
 
 # Python artifacts
 __pycache__/
